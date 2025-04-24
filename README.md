@@ -400,3 +400,85 @@ export default function VitaDashboard() {
     </Suspense>
   );
 }
+import React, { useReducer, useEffect, useCallback, Suspense, lazy, createContext, useContext } from 'react';
+import { BrowserRouter as Router, Routes, Route, NavLink } from 'react-router-dom';
+import { QueryClient, QueryClientProvider, useQuery } from 'react-query';
+import { useTranslation } from 'react-i18next';
+import { motion } from 'framer-motion';
+import html2pdf from 'html2pdf.js';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+
+// React Query client
+const queryClient = new QueryClient();
+
+// Lazy-loaded pages
+const DashboardHome = lazy(() => import('./pages/DashboardHome'));
+const ScanPage      = lazy(() => import('./pages/ScanPage'));
+const ChatPage      = lazy(() => import('./pages/ChatPage'));
+const MealPlanPage  = lazy(() => import('./pages/MealPlanPage'));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+const SettingsPage  = lazy(() => import('./pages/SettingsPage'));
+const AutoshipGate  = lazy(() => import('./components/AutoshipGate'));
+
+const auth = getAuth();
+const db   = getFirestore();
+
+// ... (Query fetchers and context omitted for brevity)
+const VitaContext = createContext();
+export function useVita() { return useContext(VitaContext); }
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <MainLayout />
+      </Router>
+    </QueryClientProvider>
+  );
+}
+
+function MainLayout() {
+  const [user, setUser] = React.useState(null);
+  const [loadingAuth, setLoadingAuth] = React.useState(true);
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, u => {
+      setUser(u);
+      setLoadingAuth(false);
+    });
+  }, []);
+
+  if (loadingAuth) return <div>Loading...</div>;
+  if (!user) return <LoginPage />; // assume you have a login page
+
+  return (
+    <div className="min-h-screen flex bg-sand">
+      <nav className="w-64 bg-white border-r p-6">
+        <h2 className="text-xl font-bold mb-6 text-eucalyptus">VITA</h2>
+        {['Home','Scan','Chat','Meals','Analytics','Settings'].map((p) => (
+          <NavLink
+            key={p}
+            to={`/${p.toLowerCase()}`}
+            className={({isActive}) => `block py-2 px-4 rounded ${isActive?'bg-eucalyptus text-white':'text-charcoal'}`}
+          >
+            {p}
+          </NavLink>
+        ))}
+      </nav>
+      <main className="flex-1 p-6 overflow-auto">
+        <Suspense fallback={<div>Loading page...</div>}>
+          <Routes>
+            <Route path="/home"      element={<DashboardHome />} />
+            <Route path="/scan"      element={<ScanPage />} />
+            <Route path="/chat"      element={<ChatPage />} />
+            <Route path="/meals"     element={<MealPlanPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/settings"  element={<SettingsPage />} />
+            <Route path="/*"          element={<DashboardHome />} />
+          </Routes>
+        </Suspense>
+      </main>
+    </div>
+  );
+}
